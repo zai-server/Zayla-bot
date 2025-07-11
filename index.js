@@ -1,4 +1,5 @@
 require('dotenv').config();
+const fs = require('fs');
 const express = require('express');
 const QRCode = require('qrcode');
 const { default: makeWASocket, useMultiFileAuthState, DisconnectReason } = require('@whiskeysockets/baileys');
@@ -8,9 +9,16 @@ const commandHandler = require('./handlers/commandHandler');
 const monitorHandler = require('./handlers/monitorHandler');
 const messageHandler = require('./handlers/messageHandler');
 
-let latestQR = ''; // Menyimpan QR base64
-
 console.log('🟢 Memulai Zayla-Bot...');
+
+// Pastikan folder auth/ ada
+if (!fs.existsSync('auth')) {
+  console.log('📂 Folder auth/ tidak ditemukan. Membuat...');
+  fs.mkdirSync('auth');
+}
+
+let latestQR = ''; // base64 QR code
+let isLoggedIn = false;
 
 const app = express();
 
@@ -19,8 +27,22 @@ app.get('/', (req, res) => {
 });
 
 app.get('/qr', (req, res) => {
-  if (!latestQR) {
-    return res.send('⏳ QR belum tersedia. Tunggu sebentar...');
+  if (isLoggedIn) {
+    return res.send(`
+      <html><body style="text-align:center">
+        <h2>✅ Bot sudah login ke WhatsApp</h2>
+        <p>Kamu bisa mulai kirim perintah lewat WhatsApp.</p>
+      </body></html>
+    `);
+  }
+
+  if (!latestQR || !latestQR.startsWith('data:image')) {
+    return res.send(`
+      <html><body style="text-align:center">
+        <h2>⏳ QR belum siap</h2>
+        <p>Tunggu 1–2 detik dan refresh halaman ini.</p>
+      </body></html>
+    `);
   }
 
   res.send(`
@@ -29,7 +51,7 @@ app.get('/qr', (req, res) => {
       <body style="text-align:center; font-family:sans-serif;">
         <h2>🔐 Scan QR untuk login ke Zayla-Bot</h2>
         <img src="${latestQR}" alt="QR Code" style="margin:20px;" />
-        <p>Gunakan WhatsApp kamu dan scan seperti WhatsApp Web.</p>
+        <p>Gunakan WhatsApp kamu untuk scan QR ini seperti WhatsApp Web.</p>
       </body>
     </html>
   `);
@@ -41,42 +63,42 @@ app.listen(PORT, () => {
 });
 
 const startBot = async () => {
+  console.log('🔧 Memanggil startBot()...');
+
   try {
-    console.log('🔧 Inisialisasi Baileys...');
     const { state, saveCreds } = await useMultiFileAuthState('auth');
 
     const sock = makeWASocket({
       auth: state,
-      printQRInTerminal: false // QR hanya di web
+      printQRInTerminal: false
     });
 
     console.log('✅ Socket WA berhasil dibuat');
 
     sock.ev.on('creds.update', saveCreds);
 
-    sock.ev.on('connection.update', (update) => {
+    sock.ev.on('connection.update', async (update) => {
       const { connection, lastDisconnect, qr } = update;
 
       if (qr) {
-        console.log('📡 QR diterima, generate QR untuk halaman web...');
-        QRCode.toDataURL(qr, (err, url) => {
-          if (err) {
-            console.error('❌ Gagal generate QR:', err);
-          } else {
-            latestQR = url;
-            console.log('✅ QR siap di-scan di /qr');
-          }
-        });
+        try {
+          const url = await QRCode.toDataURL(qr);
+          latestQR = url;
+          isLoggedIn = false;
+          console.log('✅ QR baru siap diakses di /qr');
+        } catch (err) {
+          console.error('❌ Gagal generate QR:', err);
+        }
       }
 
       if (connection === 'open') {
+        isLoggedIn = true;
         console.log('🔓 Bot berhasil login ke WhatsApp');
       }
 
       if (connection === 'close') {
         const statusCode = new Boom(lastDisconnect?.error).output?.statusCode;
         const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
-
         console.log(`⚠️ Koneksi terputus. Reconnect? ${shouldReconnect}`);
         if (shouldReconnect) startBot();
       }
