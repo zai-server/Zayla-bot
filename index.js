@@ -8,6 +8,12 @@ const commandHandler = require('./handlers/commandHandler');
 const monitorHandler = require('./handlers/monitorHandler');
 const messageHandler = require('./handlers/messageHandler');
 
+// Inisialisasi Express untuk status server
+const app = express();
+app.get('/', (req, res) => res.send('✅ Zayla-Bot is running using Baileys'));
+app.listen(process.env.PORT || 3000, () => console.log('🌐 Web server aktif'));
+
+// Mulai Bot WhatsApp
 const startBot = async () => {
   const { state, saveCreds } = await useMultiFileAuthState('auth');
 
@@ -16,28 +22,32 @@ const startBot = async () => {
     printQRInTerminal: true,
   });
 
+  // Simpan session (agar tidak perlu scan ulang)
   sock.ev.on('creds.update', saveCreds);
 
+  // QR Code & Status koneksi
   sock.ev.on('connection.update', (update) => {
     const { connection, lastDisconnect, qr } = update;
 
     if (qr) {
-      console.log('🔐 Scan QR berikut untuk login:');
+      console.log('🔐 Scan QR untuk login Zayla-Bot:');
       qrcode.generate(qr, { small: true });
     }
 
     if (connection === 'close') {
-      const shouldReconnect =
-        (lastDisconnect?.error = new Boom(lastDisconnect?.error))?.output?.statusCode !== DisconnectReason.loggedOut;
+      const statusCode = new Boom(lastDisconnect?.error).output?.statusCode;
+      const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
+
       console.log('❌ Koneksi terputus. Reconnect?', shouldReconnect);
       if (shouldReconnect) startBot();
     }
 
     if (connection === 'open') {
-      console.log('✅ Zayla‑Bot v1.1.0 aktif dan siap digunakan!');
+      console.log('✅ Zayla-Bot v1.1.0 aktif! (Powered by ZAI Lab)');
     }
   });
 
+  // Saat pesan masuk
   sock.ev.on('messages.upsert', async ({ messages }) => {
     const msg = messages[0];
     if (!msg.message || msg.key.fromMe) return;
@@ -59,9 +69,3 @@ const startBot = async () => {
 };
 
 startBot();
-
-const app = express();
-app.get('/', (req, res) => res.send('Zayla‑Bot is running using Baileys'));
-app.listen(process.env.PORT || 3000, () => {
-  console.log('🌐 Web server aktif');
-});
