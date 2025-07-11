@@ -39,8 +39,14 @@ module.exports = {
     return false;
   },
   addQuizPoint(id, points)
-    .transfer [nomor] [jumlah] - Kirim zcoin ke pengguna lain  
-.topzcoin - Ranking 5 pengguna zcoin tertinggi {
+    getTopZcoin(limit = 5) {
+  const top = Object.entries(users)
+    .map(([id, data]) => ({ id, zcoin: data.zcoin }))
+    .sort((a, b) => b.zcoin - a.zcoin)
+    .slice(0, limit);
+
+  return top;
+{
     const user = this.getOrCreateUser(id);
     user.quizPoints += points;
     saveData();
