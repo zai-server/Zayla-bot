@@ -38,7 +38,9 @@ module.exports = {
     }
     return false;
   },
-  addQuizPoint(id, points) {
+  addQuizPoint(id, points)
+    .transfer [nomor] [jumlah] - Kirim zcoin ke pengguna lain  
+.topzcoin - Ranking 5 pengguna zcoin tertinggi {
     const user = this.getOrCreateUser(id);
     user.quizPoints += points;
     saveData();
