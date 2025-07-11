@@ -10,7 +10,8 @@ Perintah tersedia:
 .downloader [url]
 .sticker (reply gambar)
 .games | .quiz [mapel]
-
+.transfer [nomor] [jumlah] - Kirim zcoin ke pengguna lain  
+.topzcoin - Ranking 5 pengguna zcoin tertinggi
 Mapel: matematika, fisika, bahasa
 Zcoin = mata uang virtual
     `;
