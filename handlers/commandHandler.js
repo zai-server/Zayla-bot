@@ -2,11 +2,10 @@ const fs = require('fs');
 const path = require('path');
 const userService = require('../services/userService');
 
-// Auto-load semua perintah
 const commands = {};
 fs.readdirSync(path.join(__dirname, '../commands'))
-  .filter(file => file.endsWith('.js'))
-  .forEach(file => {
+  .filter((file) => file.endsWith('.js'))
+  .forEach((file) => {
     const cmd = require(`../commands/${file}`);
     commands[cmd.name] = cmd;
   });
@@ -19,23 +18,20 @@ module.exports = async (client, message) => {
   const arg = args.join(' ');
 
   const cmd = commands[cmdName];
-  if (!cmd) {
-    return client.sendMessage(message.from, `❌ Perintah .${cmdName} tidak ditemukan.`);
-  }
+  if (!cmd) return message.reply(`❌ Perintah .${cmdName} tidak ditemukan.`);
 
-  // 🛠️ Validasi premium dan admin
   if (cmd.premium && !userService.isPremium(message.from)) {
-    return client.sendMessage(message.from, '⚠️ Fitur ini hanya untuk pengguna premium.');
+    return message.reply('⚠️ Fitur ini khusus premium. Gunakan .sewa');
   }
 
   if (cmd.adminOnly && !userService.isAdmin(message.from)) {
-    return client.sendMessage(message.from, '⛔ Hanya admin yang bisa menggunakan perintah ini.');
+    return message.reply('⛔ Hanya admin yang bisa menggunakan perintah ini.');
   }
 
   try {
     await cmd.execute(client, message, arg);
   } catch (err) {
     console.error(err);
-    client.sendMessage(message.from, `❗ Error saat menjalankan .${cmdName}`);
+    message.reply('❌ Terjadi error saat menjalankan perintah.');
   }
 };
