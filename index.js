@@ -1,6 +1,6 @@
 require('dotenv').config();
 const express = require('express');
-const qrcode = require('qrcode-terminal');
+const QRCode = require('qrcode'); // pakai qrcode (bukan qrcode-terminal)
 const { default: makeWASocket, useMultiFileAuthState, DisconnectReason } = require('@whiskeysockets/baileys');
 const { Boom } = require('@hapi/boom');
 
@@ -8,10 +8,35 @@ const commandHandler = require('./handlers/commandHandler');
 const monitorHandler = require('./handlers/monitorHandler');
 const messageHandler = require('./handlers/messageHandler');
 
-// Inisialisasi Express untuk status server
+let latestQR = ''; // Simpan QR untuk ditampilkan di web
+
+// Inisialisasi Express
 const app = express();
-app.get('/', (req, res) => res.send('✅ Zayla-Bot is running using Baileys'));
-app.listen(process.env.PORT || 3000, () => console.log('🌐 Web server aktif'));
+
+app.get('/', (req, res) => {
+  res.send('✅ Zayla-Bot is running using Baileys');
+});
+
+app.get('/qr', (req, res) => {
+  if (!latestQR) {
+    return res.send('⏳ QR belum tersedia. Tunggu beberapa detik...');
+  }
+
+  res.send(`
+    <html>
+      <head><title>Scan QR - Zayla-Bot</title></head>
+      <body style="text-align: center; font-family: sans-serif; background: #f2f2f2;">
+        <h2>🤖 Scan QR untuk login ke Zayla-Bot</h2>
+        <img src="${latestQR}" alt="QR Code" />
+        <p>Gunakan kamera WhatsApp kamu seperti login WhatsApp Web</p>
+      </body>
+    </html>
+  `);
+});
+
+app.listen(process.env.PORT || 3000, () => {
+  console.log('🌐 Web server aktif');
+});
 
 // Mulai Bot WhatsApp
 const startBot = async () => {
@@ -19,19 +44,22 @@ const startBot = async () => {
 
   const sock = makeWASocket({
     auth: state,
-    printQRInTerminal: true,
+    printQRInTerminal: true, // tetap tampil di logs
   });
 
-  // Simpan session (agar tidak perlu scan ulang)
   sock.ev.on('creds.update', saveCreds);
 
-  // QR Code & Status koneksi
   sock.ev.on('connection.update', (update) => {
     const { connection, lastDisconnect, qr } = update;
 
     if (qr) {
-      console.log('🔐 Scan QR untuk login Zayla-Bot:');
-      qrcode.generate(qr, { small: true });
+      console.log('🔐 QR tersedia, scan di log atau buka /qr di web');
+
+      // Simpan QR ke base64 untuk ditampilkan di web
+      QRCode.toDataURL(qr, (err, url) => {
+        if (err) return console.error('❌ Gagal membuat QR:', err);
+        latestQR = url;
+      });
     }
 
     if (connection === 'close') {
@@ -47,7 +75,6 @@ const startBot = async () => {
     }
   });
 
-  // Saat pesan masuk
   sock.ev.on('messages.upsert', async ({ messages }) => {
     const msg = messages[0];
     if (!msg.message || msg.key.fromMe) return;
