@@ -49,22 +49,25 @@ app.get('/qr', (_, res) => {
   res.send(`<img src="${latestQR}" style="width:300px; height:300px;" />`);
 });
 
-// ✅ FIX: Gunakan PORT dari environment (Zeabur)
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`🌐 Web server aktif di port ${PORT}`);
-});
+try {
+  app.listen(PORT, () => {
+    console.log(`🌐 Web server aktif di port ${PORT}`);
+  });
+} catch (err) {
+  console.error('❌ Gagal menjalankan web server:', err);
+}
 
-// Menjaga proses agar dianggap aktif
 setInterval(() => {
   console.log('🕓 Bot masih aktif...');
 }, 60000);
 
 const startBot = async () => {
   console.log('🔧 Menjalankan startBot()...');
-
   try {
+    console.log('🗝️  Mengambil session dari folder auth...');
     const { state, saveCreds } = await useMultiFileAuthState('auth');
+    console.log('✅ Session berhasil dimuat. Membuat koneksi...');
 
     const sock = makeWASocket({
       auth: state,
@@ -124,4 +127,8 @@ const startBot = async () => {
   }
 };
 
-startBot();
+try {
+  startBot();
+} catch (err) {
+  console.error('❌ startBot() crash tidak tertangkap:', err);
+      }
