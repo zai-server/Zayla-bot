@@ -1,7 +1,7 @@
-// Log awal agar tahu proses tidak crash
-console.log('✅ index.js loaded awal');
+// Log awal untuk deteksi crash awal
+console.log('✅ index.js dimulai');
 
-// Pastikan env, modul, dan log Baileys tidak menyebabkan crash
+// Nonaktifkan log bawaan Baileys agar tidak terlalu ramai
 process.env.BAILEYS_LOG_LEVEL = 'silent';
 
 require('dotenv').config();
@@ -11,15 +11,23 @@ const QRCode = require('qrcode');
 const { default: makeWASocket, useMultiFileAuthState, DisconnectReason } = require('@whiskeysockets/baileys');
 const { Boom } = require('@hapi/boom');
 
-// ❗ Safe fallback jika file handler belum dibuat
-const commandHandler = require('./handlers/commandHandler') || (() => {});
-const monitorHandler = require('./handlers/monitorHandler') || (() => {});
-const messageHandler = require('./handlers/messageHandler') || (() => {});
+// Safe fallback jika file handler belum ada
+let commandHandler = () => {};
+let monitorHandler = () => {};
+let messageHandler = () => {};
 
-// Pastikan folder auth/ ada agar Baileys tidak error
+try {
+  commandHandler = require('./handlers/commandHandler');
+  monitorHandler = require('./handlers/monitorHandler');
+  messageHandler = require('./handlers/messageHandler');
+} catch (err) {
+  console.log('⚠️ Beberapa handler belum tersedia, menggunakan default kosong.');
+}
+
+// Pastikan folder auth tersedia
 if (!fs.existsSync('auth')) {
   fs.mkdirSync('auth');
-  console.log('📂 Folder auth dibuat');
+  console.log('📂 Folder auth/ dibuat');
 }
 
 let latestQR = '';
@@ -28,7 +36,7 @@ let isLoggedIn = false;
 const app = express();
 
 app.get('/', (_, res) => {
-  res.send('✅ Zayla-Bot is running on Baileys v1.1.0');
+  res.send('✅ Zayla-Bot aktif di Baileys v1.1.0');
 });
 
 app.get('/qr', (_, res) => {
@@ -36,17 +44,21 @@ app.get('/qr', (_, res) => {
     return res.send('<h2>✅ Bot sudah login ke WhatsApp</h2>');
   }
   if (!latestQR) {
-    return res.send('<h2>⏳ QR belum siap. Refresh halaman ini dalam 5 detik.</h2>');
+    return res.send('<h2>⏳ QR belum tersedia. Tunggu dan refresh halaman.</h2>');
   }
-  res.send(`<img src="${latestQR}" style="width:300px;" />`);
+  res.send(`<img src="${latestQR}" style="width:300px; height:300px;" />`);
 });
 
+// ✅ FIX: Gunakan PORT dari environment (Zeabur)
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`🌐 Web server aktif di port ${PORT}`);
 });
 
-setInterval(() => console.log('🕓 Zayla-Bot masih hidup...'), 60000);
+// Menjaga proses agar dianggap aktif
+setInterval(() => {
+  console.log('🕓 Bot masih aktif...');
+}, 60000);
 
 const startBot = async () => {
   console.log('🔧 Menjalankan startBot()...');
@@ -70,21 +82,21 @@ const startBot = async () => {
         try {
           latestQR = await QRCode.toDataURL(qr);
           isLoggedIn = false;
-          console.log('📡 QR baru diterima. Scan di /qr');
+          console.log('📡 QR baru diterima. Akses di /qr');
         } catch (err) {
-          console.error('❌ Gagal generate QR:', err);
+          console.error('❌ Gagal membuat QR:', err);
         }
       }
 
       if (connection === 'open') {
         isLoggedIn = true;
-        console.log('✅ Bot berhasil login ke WhatsApp');
+        console.log('🔓 Bot berhasil login ke WhatsApp');
       }
 
       if (connection === 'close') {
         const statusCode = new Boom(lastDisconnect?.error).output?.statusCode;
         const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
-        console.log(`⚠️ Koneksi WA ditutup. Reconnect? ${shouldReconnect}`);
+        console.log(`⚠️ Koneksi terputus. Reconnect? ${shouldReconnect}`);
         if (shouldReconnect) startBot();
       }
     });
@@ -108,7 +120,7 @@ const startBot = async () => {
       await commandHandler(sock, message);
     });
   } catch (err) {
-    console.error('❌ startBot() gagal:', err);
+    console.error('❌ startBot() error:', err);
   }
 };
 
