@@ -1,17 +1,23 @@
-// Log awal untuk deteksi crash awal
-console.log('✅ index.js dimulai');
+// 🟢 Log awal untuk pastikan file ini dijalankan
+console.log('✅ index.js loaded early');
 
-// Nonaktifkan log bawaan Baileys agar tidak terlalu ramai
+process.on('uncaughtException', (err) => {
+  console.error('💥 uncaughtException:', err);
+});
+process.on('unhandledRejection', (err) => {
+  console.error('💥 unhandledRejection:', err);
+});
+
 process.env.BAILEYS_LOG_LEVEL = 'silent';
-
 require('dotenv').config();
+
 const fs = require('fs');
 const express = require('express');
 const QRCode = require('qrcode');
 const { default: makeWASocket, useMultiFileAuthState, DisconnectReason } = require('@whiskeysockets/baileys');
 const { Boom } = require('@hapi/boom');
 
-// Safe fallback jika file handler belum ada
+// ✅ Safe fallback jika ada file handler kosong
 let commandHandler = () => {};
 let monitorHandler = () => {};
 let messageHandler = () => {};
@@ -24,7 +30,7 @@ try {
   console.log('⚠️ Beberapa handler belum tersedia, menggunakan default kosong.');
 }
 
-// Pastikan folder auth tersedia
+// 📁 Pastikan folder auth tersedia
 if (!fs.existsSync('auth')) {
   fs.mkdirSync('auth');
   console.log('📂 Folder auth/ dibuat');
@@ -49,6 +55,7 @@ app.get('/qr', (_, res) => {
   res.send(`<img src="${latestQR}" style="width:300px; height:300px;" />`);
 });
 
+// ✅ Pastikan pakai PORT dari Zeabur
 const PORT = process.env.PORT || 3000;
 try {
   app.listen(PORT, () => {
@@ -58,6 +65,7 @@ try {
   console.error('❌ Gagal menjalankan web server:', err);
 }
 
+// Keep-alive log supaya tidak dianggap idle
 setInterval(() => {
   console.log('🕓 Bot masih aktif...');
 }, 60000);
@@ -65,7 +73,7 @@ setInterval(() => {
 const startBot = async () => {
   console.log('🔧 Menjalankan startBot()...');
   try {
-    console.log('🗝️  Mengambil session dari folder auth...');
+    console.log('🗝️ Mengambil session dari folder auth...');
     const { state, saveCreds } = await useMultiFileAuthState('auth');
     console.log('✅ Session berhasil dimuat. Membuat koneksi...');
 
@@ -131,4 +139,4 @@ try {
   startBot();
 } catch (err) {
   console.error('❌ startBot() crash tidak tertangkap:', err);
-      }
+    }
